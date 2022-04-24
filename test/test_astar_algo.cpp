@@ -1,282 +1,262 @@
 //#include "stdafx.h"
-#include "astar_algo.h"
-#include <vector>
+#include "astar_algo.hpp"
+#include <iostream>
 #include <queue>
 #include <set>
-#include <iostream>
+#include <vector>
 
 using namespace std;
 using namespace stdext;
 
-class XyNode: public astar::base_node<int>
+namespace stdext::astar::demo
 {
-	public:
-		typedef int Value;
-		typedef astar::base_node<int> Base;
+    class xy_node: public base_node<int>
+    {
+    public:
+        using value_type = int;
+        using base_type = base_node<int>;
+        using neighbors_type = std::vector<int>;
 
-		XyNode( const int id = 0, const Value x = 0, const Value y = 0):
-			iID( id),
-			iX( x),
-			iY( y)
-		{}
+        xy_node(const int id = 0, const value_type x = 0, const value_type y = 0): _id(id), _x(x), _y(y) {}
+        xy_node(const xy_node& node) = default;
 
-		XyNode( const XyNode& node):
-			Base( node),
-			iID( node.iID),
-			iX( node.iX),
-			iY( node.iY),
-			neighbors( node.neighbors)
-		{}
+        operator int() const noexcept { return id(); }
 
-		operator int() const { return id(); }
+        int id() const noexcept { return _id; }
+        void set_id(const int value) { _id = value; }
 
-		int id() const { return iID; }
-		void setID( const int value) { iID = value; }
+        value_type x() const noexcept { return _x; }
+        void set_x(const value_type value) { _x = value; }
 
-		Value x() const { return iX; }
-		void setX( const Value value) { iX = value; }
+        value_type y() const noexcept { return _y; }
+        void set_y(const value_type value) { _y = value; }
 
-		Value y() const { return iY; }
-		void setY( const Value value) { iY = value; }
+        value_type distance_to(const xy_node& node) const noexcept { return _x * node._x + _y + node._y; }
 
-		Value distance_to( const XyNode& node) const
-		{
-			return iX * node.iX + iY + node.iY;
-		}
+        void set_heuristic_score(const xy_node& targetNode) noexcept { base_type::set_heuristic_score(distance_to(targetNode)); }
 
-		void set_heuristic_score( const XyNode& targetNode) { Base::set_heuristic_score( distance_to( targetNode)); }
+        neighbors_type neighbors;
 
-		typedef std::vector<int> Neighbors;
+    protected:
+        value_type _id, _x, _y;
+    };
 
-		Neighbors neighbors;
+    struct solution_verifier
+    {
+        const int _node_id;
+        solution_verifier(const int node_id) noexcept: _node_id(node_id) {}
 
-	protected:
-		Value iID, iX, iY;
-};
+        bool operator()(const xy_node& n) const noexcept { return n.id() == _node_id; }
+    };
 
+    using xy_node_list = std::vector<xy_node>;
 
-struct SolutionVerifier
-{
-	const int iNodeID;
-	SolutionVerifier( const int nodeID): iNodeID( nodeID) {}
+    class enumerator
+    {
+    public:
+        enumerator(xy_node_list& node_list): _node_list(node_list) {}
 
-	bool operator() ( const XyNode& n) const
-	{
-		return n.id() == iNodeID;
-	}
-};
+        operator bool() const noexcept { return _node != nullptr; }
 
+        void operator()(const xy_node& node)
+        {
+            _neighbors = node.neighbors.begin();
+            _neighbors_end = node.neighbors.end();
+            if (_neighbors == _neighbors_end)
+            {
+                _node = nullptr;
+            }
+            else
+            {
+                _node = &_node_list[*_neighbors];
+            }
+        }
 
-typedef vector<XyNode> NodeList;
+        void operator++()
+        {
+            if (_node)
+            {
+                if (_neighbors + 1 != _neighbors_end)
+                {
+                    ++_neighbors;
+                    _node = &_node_list[*_neighbors];
+                }
+                else
+                {
+                    _node = nullptr;
+                }
+            }
+        }
 
-class Enumerator
-{
-public:
-	Enumerator( NodeList& nodeList): 
-		node_( 0), 
-		iNodeList( nodeList) 
-	{}
+        xy_node& operator*() noexcept { return *_node; }
+        const xy_node& operator*() const noexcept { return *_node; }
 
-	operator bool () const { return node_ != 0; }
+        xy_node* operator->() noexcept { return _node; }
+        const xy_node* operator->() const noexcept { return _node; }
 
-	void operator () ( const XyNode& node)
-	{
-		iNeighbors = node.neighbors.begin();
-		iNeighborsEnd = node.neighbors.end();
-		if ( iNeighbors == iNeighborsEnd)
-		{
-			node_ = 0;
-		}
-		else
-		{
-			node_ = &iNodeList[ *iNeighbors];
-		}
-	}
+    private:
+        xy_node::neighbors_type::const_iterator _neighbors {};
+        xy_node::neighbors_type::const_iterator _neighbors_end {};
+        xy_node* _node {};
+        xy_node_list& _node_list;
+    };
 
-	void operator ++ ()
-	{
-		if ( node_)
-		{
-			if ( iNeighbors + 1 != iNeighborsEnd)
-			{
-				++iNeighbors;
-				node_ = &iNodeList[ *iNeighbors];
-			}
-			else
-			{
-				node_ = 0;
-			}
-		}
-	}
+    void test1(xy_node_list& node_list)
+    {
+        node_list.clear();
 
-	XyNode& operator * () { return *node_; }
-	const XyNode& operator * () const { return *node_; }
+        xy_node n;
 
-	XyNode* operator -> () { return node_; }
-	const XyNode* operator -> () const { return node_; }
+        n.set_id(0);
+        n.set_x(0);
+        n.set_y(5);
+        n.neighbors.clear();
+        n.neighbors.push_back(1);
+        n.neighbors.push_back(2);
+        node_list.push_back(n);
 
-private:
-	XyNode::Neighbors::const_iterator	iNeighbors;
-	XyNode::Neighbors::const_iterator	iNeighborsEnd;
-	XyNode*							node_;
-	NodeList&						iNodeList;
-};
+        n.set_id(1);
+        n.set_x(3);
+        n.set_y(6);
+        n.neighbors.clear();
+        n.neighbors.push_back(3);
+        node_list.push_back(n);
 
+        n.set_id(2);
+        n.set_x(4);
+        n.set_y(3);
+        n.neighbors.clear();
+        n.neighbors.push_back(4);
+        n.neighbors.push_back(5);
+        node_list.push_back(n);
 
-void test1( NodeList& list)
-{
-	list.clear();
+        n.set_id(3);
+        n.set_x(6);
+        n.set_y(9);
+        n.neighbors.clear();
+        n.neighbors.push_back(6);
+        n.neighbors.push_back(7);
+        node_list.push_back(n);
 
-	XyNode n;
+        n.set_id(4);
+        n.set_x(7);
+        n.set_y(3);
+        n.neighbors.clear();
+        n.neighbors.push_back(8);
+        n.neighbors.push_back(10);
+        node_list.push_back(n);
 
-	n.setID( 0);
-	n.setX( 0);
-	n.setY( 5);
-	n.neighbors.clear();
-	n.neighbors.push_back( 1);
-	n.neighbors.push_back( 2);
-	list.push_back( n);
+        n.set_id(5);
+        n.set_x(6);
+        n.set_y(1);
+        n.neighbors.clear();
+        n.neighbors.push_back(8);
+        node_list.push_back(n);
 
-	n.setID( 1);
-	n.setX( 3);
-	n.setY( 6);
-	n.neighbors.clear();
-	n.neighbors.push_back( 3);
-	list.push_back( n);
+        n.set_id(6);
+        n.set_x(8);
+        n.set_y(6);
+        n.neighbors.clear();
+        n.neighbors.push_back(7);
+        n.neighbors.push_back(10);
+        node_list.push_back(n);
 
-	n.setID( 2);
-	n.setX( 4);
-	n.setY( 3);
-	n.neighbors.clear();
-	n.neighbors.push_back( 4);
-	n.neighbors.push_back( 5);
-	list.push_back( n);
+        n.set_id(7);
+        n.set_x(11);
+        n.set_y(8);
+        n.neighbors.clear();
+        n.neighbors.push_back(9);
+        node_list.push_back(n);
 
-	n.setID( 3);
-	n.setX( 6);
-	n.setY( 9);
-	n.neighbors.clear();
-	n.neighbors.push_back( 6);
-	n.neighbors.push_back( 7);
-	list.push_back( n);
+        n.set_id(8);
+        n.set_x(10);
+        n.set_y(2);
+        n.neighbors.clear();
+        n.neighbors.push_back(11);
+        node_list.push_back(n);
 
-	n.setID( 4);
-	n.setX( 7);
-	n.setY( 3);
-	n.neighbors.clear();
-	n.neighbors.push_back( 8);
-	n.neighbors.push_back( 10);
-	list.push_back( n);
+        n.set_id(9);
+        n.set_x(13);
+        n.set_y(6);
+        n.neighbors.clear();
+        node_list.push_back(n);
 
-	n.setID( 5);
-	n.setX( 6);
-	n.setY( 1);
-	n.neighbors.clear();
-	n.neighbors.push_back( 8);
-	list.push_back( n);
+        n.set_id(10);
+        n.set_x(8);
+        n.set_y(6);
+        n.neighbors.clear();
+        n.neighbors.push_back(12);
+        node_list.push_back(n);
 
-	n.setID( 6);
-	n.setX( 8);
-	n.setY( 6);
-	n.neighbors.clear();
-	n.neighbors.push_back( 7);
-	n.neighbors.push_back( 10);
-	list.push_back( n);
+        n.set_id(11);
+        n.set_x(13);
+        n.set_y(0);
+        n.neighbors.clear();
+        node_list.push_back(n);
 
-	n.setID( 7);
-	n.setX( 11);
-	n.setY( 8);
-	n.neighbors.clear();
-	n.neighbors.push_back( 9);
-	list.push_back( n);
+        n.set_id(12);
+        n.set_x(17);
+        n.set_y(3);
+        n.neighbors.clear();
+        node_list.push_back(n);
+    }
 
-	n.setID( 8);
-	n.setX( 10);
-	n.setY( 2);
-	n.neighbors.clear();
-	n.neighbors.push_back( 11);
-	list.push_back( n);
+    struct solution_item
+    {
+        const int from;
+        const int to;
 
-	n.setID( 9);
-	n.setX( 13);
-	n.setY( 6);
-	n.neighbors.clear();
-	list.push_back( n);
+        solution_item(const int from, const int to = 0): from(from), to(to) {}
 
-	n.setID( 10);
-	n.setX( 8);
-	n.setY( 6);
-	n.neighbors.clear();
-	n.neighbors.push_back( 12);
-	list.push_back( n);
+        bool operator<(const solution_item& item) const noexcept { return from < item.from; }
+        bool operator==(const solution_item& item) const noexcept = default;
+    };
 
-	n.setID( 11);
-	n.setX( 13);
-	n.setY( 0);
-	n.neighbors.clear();
-	list.push_back( n);
+    using solution = set<solution_item>;
+    using algo = astar::algo<xy_node, priority_queue<xy_node>, enumerator, set<int>, solution_verifier, solution>;
 
-	n.setID( 12);
-	n.setX( 17);
-	n.setY( 3);
-	n.neighbors.clear();
-	list.push_back( n);
+    void print(const solution& s, const xy_node& target_node)
+    {
+        int id = target_node;
+        while (1)
+        {
+            auto item = s.find(id);
+            if (item != s.end())
+            {
+                cout << id << ' ';
+                id = item->to;
+            }
+            else
+                break;
+        }
+
+        cout << '\n';
+    }
 }
-
-
-struct SolutionItem
-{
-	const int from;
-	const int to;
-
-	SolutionItem( const int from, const int to = 0): from( from), to( to) {}
-
-	bool operator < ( const SolutionItem& item) const { return from < item.from; }
-	bool operator == ( const SolutionItem& item) const { return from == item.from; }
-};
-
-
-typedef set<SolutionItem> Solution;
-
-typedef astar::algo<XyNode, priority_queue<XyNode>, Enumerator, set<int>, SolutionVerifier, Solution> AStarAlgo;
-
-void print( const Solution& s, const XyNode& targetNode)
-{
-	int id = targetNode;
-	while( 1)
-	{
-		Solution::const_iterator item = s.find( id);
-		if ( item != s.end())
-		{
-			cout << id << ' ';
-			id = item->to;
-		}
-		else
-			break;
-	}
-	cout << '\n';
-}
-
 
 int main()
 {
-	NodeList nodeList;
-	test1( nodeList);
+    using namespace stdext::astar::demo;
 
-	const XyNode& startNode = nodeList[ 0];
-	const XyNode& targetNode = nodeList[ nodeList.size() - 1];
+    xy_node_list nodeList;
+    test1(nodeList);
 
-	AStarAlgo as( startNode, targetNode, SolutionVerifier( targetNode), Enumerator( nodeList));
+    const xy_node& startNode = nodeList[0];
+    const xy_node& targetNode = nodeList[nodeList.size() - 1];
 
-	int steps = 0;
-	while( as())
-	{ ++steps; }
-	
-	if ( as.has_solution())
-	{
-		cout << "steps=" << steps << " path: ";
-		print( as.solution(), targetNode);
-	}
+    algo as_algo(startNode, targetNode, solution_verifier(targetNode), enumerator(nodeList), {});
 
-	return 0;
+    unsigned steps = 0;
+    while (as_algo())
+    {
+        ++steps;
+    }
+
+    if (as_algo.has_solution())
+    {
+        cout << "steps=" << steps << " path: ";
+        print(as_algo.solution(), targetNode);
+    }
+
+    return 0;
 }
